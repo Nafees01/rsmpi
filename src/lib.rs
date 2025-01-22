@@ -123,6 +123,9 @@
 //!
 //! [MPIspec]: http://www.mpi-forum.org/docs/docs.html
 
+
+
+
 use std::{mem::MaybeUninit, os::raw::c_int};
 
 /// The raw C language MPI API
@@ -144,6 +147,10 @@ pub mod point_to_point;
 pub mod raw;
 pub mod request;
 pub mod topology;
+/// This module provides a typed communicator for MPI operations.
+/// It includes support for sending and receiving typed data, and
+/// validating datatype consistency across ranks.
+pub mod typed_communicator;
 
 /// Re-exports all traits.
 pub mod traits {
