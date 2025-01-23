@@ -1,10 +1,12 @@
-use crate::topology::SimpleCommunicator;
-use crate::datatype::Equivalence;
-use crate::raw::AsRaw;
-use crate::topology::Communicator;
-use crate::collective::CommunicatorCollectives;
-use crate::point_to_point::{Destination, Source};
+use std::any::TypeId;
 
+use crate::{
+    collective::CommunicatorCollectives,
+    point_to_point::{Destination, Source},
+    raw::AsRaw,
+    topology::{Communicator, SimpleCommunicator},
+    traits::Equivalence,
+};
 
 /// A typed communicator for MPI operations with data type T.
 pub struct TypedCommunicator<'a, T>
@@ -15,32 +17,38 @@ where
     phantom: std::marker::PhantomData<T>,
 }
 
+#[derive(Eq, PartialEq, Equivalence, Debug, Clone, Default)]
+#[mpi(crate = "crate")]
+struct MyTypeId(u64, u64);
+
 impl<'a, T> TypedCommunicator<'a, T>
 where
-    T: Equivalence,
+    T: Equivalence + 'static,
 {
     /// Creates a new `TypedCommunicator` over type `T`.
     pub fn new(communicator: &'a SimpleCommunicator) -> Self {
         // Validate datatype during construction
         let rank = communicator.rank();
         let size = communicator.size();
-        let local_datatype = T::equivalent_datatype().as_raw();
+
+        let local_type = TypeId::of::<T>();
+        let local_type: MyTypeId = unsafe { std::mem::transmute(local_type) };
 
         // Collect datatype info across ranks
-        let mut all_datatypes = vec![local_datatype; size as usize];
-        communicator.all_gather_into(&local_datatype, &mut all_datatypes);
+        let mut all_types = vec![MyTypeId::default(); size as usize];
+        communicator.all_gather_into(&local_type, &mut all_types);
 
         // Check congruence
-        let is_congruent = all_datatypes.iter().all(|&dt| dt == local_datatype);
+        let is_congruent = all_types.iter().all(|dt| dt == &local_type);
         if !is_congruent {
             panic!(
                 "Rank {}: Datatype mismatch detected among ranks: {:?}",
-                rank, all_datatypes
+                rank, all_types
             );
         } else if rank == 0 {
             println!(
                 "Rank {}: Datatypes validated successfully: {:?}",
-                rank, all_datatypes
+                rank, all_types
             );
         }
 
@@ -50,10 +58,9 @@ where
         }
     }
 
+    /// Sends a single value to the specified destination.
 
-   /// Sends a single value to the specified destination.
-
-   pub fn send_value(&self, data: &T, destination: i32, _tag: i32) {
+    pub fn send_value(&self, data: &T, destination: i32, _tag: i32) {
         // Type-checking for `send_value`
         if T::equivalent_datatype().as_raw() != T::equivalent_datatype().as_raw() {
             panic!(
@@ -63,9 +70,7 @@ where
             );
         }
 
-        self.communicator
-            .process_at_rank(destination)
-            .send(data);
+        self.communicator.process_at_rank(destination).send(data);
     }
 
     /// Sends a slice of values to the specified destination.
@@ -82,9 +87,7 @@ where
             );
         }
 
-        self.communicator
-            .process_at_rank(destination)
-            .send(data);
+        self.communicator.process_at_rank(destination).send(data);
     }
 
     /// Receives a single value from the specified source.
