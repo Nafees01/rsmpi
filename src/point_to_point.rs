@@ -1162,6 +1162,7 @@ impl MatchedReceiveVec for (Message, Status) {
         struct UninitMsg<M>(MaybeUninit<M>);
 
         unsafe impl<M: Equivalence> Equivalence for UninitMsg<M> {
+            type Base = M;
             type Out = M::Out;
 
             fn equivalent_datatype() -> Self::Out {

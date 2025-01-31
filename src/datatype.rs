@@ -188,6 +188,8 @@ pub type SystemDatatype = DatatypeRef<'static>;
 /// }
 /// ```
 pub unsafe trait Equivalence {
+    /// TODO: The congruent base type
+    type Base;
     /// The type of the equivalent MPI datatype (e.g. `SystemDatatype` or `UserDatatype`)
     type Out: Datatype;
     /// The MPI datatype that is equivalent to this Rust type
@@ -197,6 +199,7 @@ pub unsafe trait Equivalence {
 macro_rules! equivalent_system_datatype {
     ($rstype:path, $mpitype:path) => {
         unsafe impl Equivalence for $rstype {
+            type Base = Self;
             type Out = SystemDatatype;
             fn equivalent_datatype() -> Self::Out {
                 unsafe { DatatypeRef::from_raw($mpitype) }

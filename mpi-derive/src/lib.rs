@@ -129,6 +129,7 @@ fn equivalence_for_struct(ast: &syn::DeriveInput, fields: &Fields) -> TokenStrea
             // This requires larger attention, and so currently this is not addressed.
             quote! {
                 unsafe impl #mpi_crate_path::datatype::Equivalence for #ident {
+                    type Base = Self; // TODO: can we lower homogeneous structs?
                     type Out = #mpi_crate_path::datatype::DatatypeRef<'static>;
                     fn equivalent_datatype() -> Self::Out {
                         use #mpi_crate_path::internal::once_cell::sync::Lazy;
