@@ -12,7 +12,7 @@ fn main() {
         //     typed_comm.send_value(&data, 1, 0);
         //    println!("Rank 0 sent {}", data);
         let x = [[1.0_f32; 2]; 3];
-        let flattened: Vec<f32> = x.concat();
+        let flattened = x.concat();
         typed_comm.send_slice(&flattened, 1, 0);
         println!("Rank 0 sent: {:?}", flattened);
     } else if world.rank() == 1 {

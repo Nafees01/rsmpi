@@ -3,7 +3,6 @@ use std::any::TypeId;
 use crate::{
     collective::CommunicatorCollectives,
     point_to_point::{Destination, Source},
-    raw::AsRaw,
     topology::{Communicator, SimpleCommunicator},
     traits::Equivalence,
 };
