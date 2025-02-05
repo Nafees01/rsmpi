@@ -4,8 +4,6 @@ use crate::raw::AsRaw;
 use crate::topology::Communicator;
 use crate::collective::CommunicatorCollectives;
 use crate::point_to_point::{Destination, Source};
-
-
 /// A typed communicator for MPI operations with data type T.
 pub struct TypedCommunicator<'a, T>
 where
@@ -14,7 +12,6 @@ where
     communicator: &'a SimpleCommunicator, // Reference to avoid ownership issues
     phantom: std::marker::PhantomData<T>,
 }
-
 impl<'a, T> TypedCommunicator<'a, T>
 where
     T: Equivalence,
@@ -25,11 +22,9 @@ where
         let rank = communicator.rank();
         let size = communicator.size();
         let local_datatype = T::equivalent_datatype().as_raw();
-
         // Collect datatype info across ranks
         let mut all_datatypes = vec![local_datatype; size as usize];
         communicator.all_gather_into(&local_datatype, &mut all_datatypes);
-
         // Check congruence
         let is_congruent = all_datatypes.iter().all(|&dt| dt == local_datatype);
         if !is_congruent {
@@ -43,16 +38,12 @@ where
                 rank, all_datatypes
             );
         }
-
         TypedCommunicator {
             communicator,
             phantom: std::marker::PhantomData,
         }
     }
-
-
    /// Sends a single value to the specified destination.
-
    pub fn send_value(&self, data: &T, destination: i32, _tag: i32) {
         // Type-checking for `send_value`
         if T::equivalent_datatype().as_raw() != T::equivalent_datatype().as_raw() {
@@ -62,12 +53,10 @@ where
                 std::any::type_name::<T>()
             );
         }
-
         self.communicator
             .process_at_rank(destination)
             .send(data);
     }
-
     /// Sends a slice of values to the specified destination.
     pub fn send_slice<U>(&self, data: &[U], destination: i32, _tag: i32)
     where
@@ -81,12 +70,10 @@ where
                 std::any::type_name::<T>()
             );
         }
-
         self.communicator
             .process_at_rank(destination)
             .send(data);
     }
-
     /// Receives a single value from the specified source.
     pub fn receive_value(&self, buffer: &mut T, source: i32, _tag: i32) {
         // Type-checking for `receive_value`
@@ -97,12 +84,10 @@ where
                 std::any::type_name::<T>()
             );
         }
-
         self.communicator
             .process_at_rank(source)
             .receive_into(buffer);
     }
-
     /// Receives a slice of values from the specified source.
     pub fn receive_slice<U>(&self, buffer: &mut [U], source: i32, _tag: i32)
     where
@@ -116,7 +101,6 @@ where
                 std::any::type_name::<T>()
             );
         }
-
         self.communicator
             .process_at_rank(source)
             .receive_into(buffer);
