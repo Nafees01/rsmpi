@@ -12,7 +12,7 @@ use crate::{
 /// A typed communicator for MPI operations with data type T.
 pub struct TypedCommunicator<'a, T>
 where
-    T: 'static,
+    T: 'static + Equivalence,
 {
     communicator: &'a SimpleCommunicator, // Reference to avoid ownership issues
     phantom: std::marker::PhantomData<T>,
@@ -24,7 +24,7 @@ struct MyTypeId(u64, u64);
 
 impl<'a, T> TypedCommunicator<'a, T>
 where
-    T: 'static,
+    T: 'static + Equivalence,
 
 {
     /// Creates a new `TypedCommunicator` over type `T`.
@@ -243,25 +243,58 @@ where
 /// * `data` - The data to send, can be a single value or slice
 /// * `destination` - Rank of the destination process
 /// * `_tag` - Message tag
-pub fn send(&self, data: &[T], destination: i32, _tag: i32)
-where
-    T: Buffer + Equivalence,
-{
-    self.communicator.process_at_rank(destination).send(data);
-}
+// pub fn send(&self, data: &[T], destination: i32, _tag: i32)
+// where
+//     T: Buffer + Equivalence,
+// {
+//     self.communicator.process_at_rank(destination).send(data);
+// }
 
-/// Receives data from the specified source. Works with both single values and slices.
-/// 
-/// # Arguments
-/// * `buffer` - Buffer to receive the data into, can be a single value or slice
-/// * `source` - Rank of the source process
-/// * `_tag` - Message tag
-pub fn receive(&self, buffer: &mut [T], source: i32, _tag: i32)
-where
-    T: BufferMut + Equivalence,
-{
-    self.communicator.process_at_rank(source).receive_into(buffer);
-}
+// /// Receives data from the specified source. Works with both single values and slices.
+// /// 
+// /// # Arguments
+// /// * `buffer` - Buffer to receive the data into, can be a single value or slice
+// /// * `source` - Rank of the source process
+// /// * `_tag` - Message tag
+// pub fn receive(&self, buffer: &mut [T], source: i32, _tag: i32)
+// where
+//     T: BufferMut + Equivalence,
+// {
+//     self.communicator.process_at_rank(source).receive_into(buffer);
+// }
+
+/// Sends data to the specified destination.
+    /// Works for both single values and slices.
+    /// 
+    /// # Arguments
+    /// * `data` - The data to send (can be a single value or slice)
+    /// * `destination` - Rank of the destination process
+    /// * `tag` - Message tag
+
+    pub fn send<B>(&self, data: &B, destination: i32, tag: i32)
+    where
+        B: ?Sized + Buffer,
+      
+    {
+        self.communicator.process_at_rank(destination).send_with_tag(data, tag);
+    }
+
+ /// Receives data from the specified source.
+    /// Works for both single values and slices.
+    /// 
+    /// # Arguments
+    /// * `buffer` - Buffer to receive the data into (can be a single value or slice)
+    /// * `source` - Rank of the source process
+    /// * `tag` - Message tag
+    /// 
+    pub fn receive<B>(&self, buffer: &mut B, source: i32, tag: i32)
+    where
+        B: ?Sized + BufferMut,
+    {
+        self.communicator.process_at_rank(source).receive_into_with_tag(buffer, tag);
+    }
+    
+    
 
 }
 
