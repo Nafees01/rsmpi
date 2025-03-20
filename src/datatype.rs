@@ -189,7 +189,7 @@ pub type SystemDatatype = DatatypeRef<'static>;
 /// ```
 pub unsafe trait Equivalence {
     /// TODO: The congruent base type
-    type Base;
+    type Base: Equivalence;
     /// The type of the equivalent MPI datatype (e.g. `SystemDatatype` or `UserDatatype`)
     type Out: Datatype;
     /// The MPI datatype that is equivalent to this Rust type
@@ -830,11 +830,11 @@ where
 
 unsafe impl<T, const D: usize> AsDatatype for [T; D]
 where
-    T: Equivalence,
+    T: Buffer,
 {
-    type Out = <T as Equivalence>::Out;
+    type Out = <T as AsDatatype>::Out;
     fn as_datatype(&self) -> Self::Out {
-        <T as Equivalence>::equivalent_datatype()
+        self[0].as_datatype()
     }
 }
 
@@ -932,12 +932,14 @@ where
 
 unsafe impl<T, const D: usize> Collection for [T; D]
 where
-    T: Equivalence,
+    T: Buffer,
 {
     fn count(&self) -> Count {
         // TODO const generic bound
-        D.value_as()
-            .expect("Length of slice cannot be expressed as an MPI Count.")
+        // FIXME: multiply by <T as Collection>::Count
+        self[0].count()
+            * D.value_as::<Count>()
+                .expect("Length of slice cannot be expressed as an MPI Count.")
     }
 }
 
@@ -977,7 +979,7 @@ where
 
 unsafe impl<T, const D: usize> Pointer for [T; D]
 where
-    T: Equivalence,
+    T: Buffer,
 {
     fn pointer(&self) -> *const c_void {
         self.as_ptr() as _
@@ -1020,7 +1022,7 @@ where
 
 unsafe impl<T, const D: usize> PointerMut for [T; D]
 where
-    T: Equivalence,
+    T: BufferMut,
 {
     fn pointer_mut(&mut self) -> *mut c_void {
         self.as_mut_ptr() as _
@@ -1029,19 +1031,74 @@ where
 
 /// A buffer is a region in memory that starts at `pointer()` and contains `count()` copies of
 /// `as_datatype()`.
-pub unsafe trait Buffer: Pointer + Collection + AsDatatype {}
-unsafe impl<T> Buffer for T where T: Equivalence {}
-unsafe impl<T> Buffer for [T] where T: Equivalence {}
-unsafe impl<T> Buffer for Vec<T> where T: Equivalence {}
-unsafe impl<T, const D: usize> Buffer for [T; D] where T: Equivalence {}
+pub unsafe trait Buffer: Pointer + Collection + AsDatatype {
+    /// TODO: describe this for TypedCommunicator
+    type Base: Equivalence;
+}
+unsafe impl<T> Buffer for T
+where
+    T: Equivalence,
+{
+    type Base = <T as Equivalence>::Base;
+}
+unsafe impl<T> Buffer for [T]
+where
+    T: Equivalence,
+{
+    type Base = <T as Equivalence>::Base;
+}
+unsafe impl<T> Buffer for Vec<T>
+where
+    T: Equivalence,
+{
+    type Base = <T as Equivalence>::Base;
+}
+unsafe impl<T, const D: usize> Buffer for [T; D]
+where
+    T: Buffer,
+    Self: Pointer + Collection + AsDatatype,
+{
+    type Base = <T as Buffer>::Base;
+}
 
 /// A mutable buffer is a region in memory that starts at `pointer_mut()` and contains `count()`
 /// copies of `as_datatype()`.
-pub unsafe trait BufferMut: PointerMut + Collection + AsDatatype {}
-unsafe impl<T> BufferMut for T where T: Equivalence {}
-unsafe impl<T> BufferMut for [T] where T: Equivalence {}
-unsafe impl<T> BufferMut for Vec<T> where T: Equivalence {}
-unsafe impl<T, const D: usize> BufferMut for [T; D] where T: Equivalence {}
+pub unsafe trait BufferMut: PointerMut + Collection + AsDatatype {
+    /// TODO: document
+    type Base: Equivalence;
+}
+unsafe impl<T> BufferMut for T
+where
+    T: Equivalence,
+{
+    type Base = <T as Equivalence>::Base;
+}
+unsafe impl<T> BufferMut for [T]
+where
+    T: Equivalence,
+{
+    type Base = <T as Equivalence>::Base;
+}
+unsafe impl<T> BufferMut for Vec<T>
+where
+    T: Equivalence,
+{
+    type Base = <T as Equivalence>::Base;
+}
+unsafe impl<T, const D: usize> BufferMut for [T; D]
+where
+    T: BufferMut,
+    Self: PointerMut + Collection + AsDatatype,
+{
+    type Base = <T as BufferMut>::Base;
+}
+// Just a check
+fn foo_check(x: [[f32; 2]; 3]) {
+    let _y: &dyn PointerMut = &x;
+    let _y: &dyn Collection = &x;
+    let _y: &dyn AsDatatype<Out = SystemDatatype> = &x;
+    let _y: &dyn BufferMut<Base = f32, Out = SystemDatatype> = &x;
+}
 
 /// An immutable dynamically-typed buffer.
 ///
@@ -1078,7 +1135,9 @@ unsafe impl<'a> AsDatatype for DynBuffer<'a> {
     }
 }
 
-unsafe impl<'a> Buffer for DynBuffer<'a> {}
+unsafe impl<'a> Buffer for DynBuffer<'a> {
+    type Base = bool; // FIXME: need a solution for TypedCommunicator
+}
 
 impl<'a> DynBuffer<'a> {
     /// Creates a buffer from a slice with whose type has an MPI equivalent.
@@ -1171,9 +1230,13 @@ unsafe impl<'a> PointerMut for DynBufferMut<'a> {
     }
 }
 
-unsafe impl<'a> Buffer for DynBufferMut<'a> {}
+unsafe impl<'a> Buffer for DynBufferMut<'a> {
+    type Base = bool; // FIXME: need a solution for TypedCommunicator
+}
 
-unsafe impl<'a> BufferMut for DynBufferMut<'a> {}
+unsafe impl<'a> BufferMut for DynBufferMut<'a> {
+    type Base = bool; // FIXME: need a solution for TypedCommunicator
+}
 
 unsafe impl<'a> AsDatatype for DynBufferMut<'a> {
     type Out = DatatypeRef<'a>;
@@ -1344,6 +1407,7 @@ where
     D: 'd + Datatype,
     B: 'b + Pointer,
 {
+    type Base = bool; // FIXME: need a solution for TypedCommunicator
 }
 
 /// A buffer with a user specified count and datatype
@@ -1425,6 +1489,7 @@ where
     D: 'd + Datatype,
     B: 'b + PointerMut,
 {
+    type Base = bool; // FIXME: need a solution for TypedCommunicator
 }
 
 /// Describes how a `Buffer` is partitioned by specifying the count of elements and displacement
