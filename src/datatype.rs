@@ -192,6 +192,13 @@ pub unsafe trait Equivalence {
     type Base: Equivalence;
     /// The type of the equivalent MPI datatype (e.g. `SystemDatatype` or `UserDatatype`)
     type Out: Datatype;
+    /// Returns the number of elements this type represents.
+    /// For primitive types, this is 1.
+    /// For arrays and collections, this is the total number of elements.
+    fn count(&self) -> Count {
+        1 // Default is 1 element
+    }
+    
     /// The MPI datatype that is equivalent to this Rust type
     fn equivalent_datatype() -> Self::Out;
 }
@@ -232,6 +239,39 @@ equivalent_system_datatype!(isize, ffi::RSMPI_INT32_T);
 equivalent_system_datatype!(usize, ffi::RSMPI_UINT64_T);
 #[cfg(target_pointer_width = "64")]
 equivalent_system_datatype!(isize, ffi::RSMPI_INT64_T);
+
+
+// unsafe impl<T: Equivalence, const N: usize> Equivalence for [T; N] {
+//     type Base = T::Base;
+//     type Out = <T as Equivalence>::Out;
+    
+//     fn equivalent_datatype() -> Self::Out {
+//         <T as Equivalence>::equivalent_datatype()
+//     }
+// }
+
+
+unsafe impl<T, const N: usize> Equivalence for [T; N]
+where
+    T: Equivalence,
+{
+    type Base = T::Base;
+    type Out = UserDatatype;
+
+    fn equivalent_datatype() -> Self::Out {
+       
+        let t_datatype = T::equivalent_datatype();
+
+        // Create a contiguous derived datatype for [T; N]
+        UserDatatype::contiguous(N as Count, &t_datatype)
+    }
+
+    fn count(&self) -> Count {
+        // Multiply array size by element count
+        N as Count * self[0].count() 
+    }
+}
+
 
 #[cfg(feature = "complex")]
 /// Implement direct equivalence for complex types
@@ -828,15 +868,16 @@ where
     }
 }
 
-unsafe impl<T, const D: usize> AsDatatype for [T; D]
-where
-    T: Buffer,
-{
-    type Out = <T as AsDatatype>::Out;
-    fn as_datatype(&self) -> Self::Out {
-        self[0].as_datatype()
-    }
-}
+// unsafe impl<T, const D: usize> AsDatatype for [T; D]
+// where
+//     T: Buffer,
+   
+// {
+//     type Out = <T as AsDatatype>::Out;
+//     fn as_datatype(&self) -> Self::Out {
+//         self[0].as_datatype()
+//     }
+// }
 
 #[doc(hidden)]
 pub mod internal {
@@ -930,18 +971,19 @@ where
     }
 }
 
-unsafe impl<T, const D: usize> Collection for [T; D]
-where
-    T: Buffer,
-{
-    fn count(&self) -> Count {
-        // TODO const generic bound
-        // FIXME: multiply by <T as Collection>::Count
-        self[0].count()
-            * D.value_as::<Count>()
-                .expect("Length of slice cannot be expressed as an MPI Count.")
-    }
-}
+// unsafe impl<T, const D: usize> Collection for [T; D]
+// where
+//     T: Buffer,
+   
+// {
+//     fn count(&self) -> Count {
+//         // TODO const generic bound
+//         // FIXME: multiply by <T as Collection>::Count
+//         self[0].count()
+//             * D.value_as::<Count>()
+//                 .expect("Length of slice cannot be expressed as an MPI Count.")
+//     }
+// }
 
 /// Provides a pointer to the starting address in memory.
 pub unsafe trait Pointer {
@@ -977,14 +1019,14 @@ where
     }
 }
 
-unsafe impl<T, const D: usize> Pointer for [T; D]
-where
-    T: Buffer,
-{
-    fn pointer(&self) -> *const c_void {
-        self.as_ptr() as _
-    }
-}
+// unsafe impl<T, const D: usize> Pointer for [T; D]
+// where
+//     T: Buffer,
+// {
+//     fn pointer(&self) -> *const c_void {
+//         self.as_ptr() as _
+//     }
+// }
 
 /// Provides a mutable pointer to the starting address in memory.
 pub unsafe trait PointerMut {
@@ -1020,21 +1062,23 @@ where
     }
 }
 
-unsafe impl<T, const D: usize> PointerMut for [T; D]
-where
-    T: BufferMut,
-{
-    fn pointer_mut(&mut self) -> *mut c_void {
-        self.as_mut_ptr() as _
-    }
-}
+// unsafe impl<T, const D: usize> PointerMut for [T; D]
+// where
+//     T: BufferMut,
+   
+// {
+//     fn pointer_mut(&mut self) -> *mut c_void {
+//         self.as_mut_ptr() as _
+//     }
+// }
 
 /// A buffer is a region in memory that starts at `pointer()` and contains `count()` copies of
 /// `as_datatype()`.
-pub unsafe trait Buffer: Pointer + Collection + AsDatatype {
+pub unsafe trait Buffer: Pointer + Collection +  AsDatatype {
     /// TODO: describe this for TypedCommunicator
     type Base: Equivalence;
 }
+
 unsafe impl<T> Buffer for T
 where
     T: Equivalence,
@@ -1053,13 +1097,13 @@ where
 {
     type Base = <T as Equivalence>::Base;
 }
-unsafe impl<T, const D: usize> Buffer for [T; D]
-where
-    T: Buffer,
-    Self: Pointer + Collection + AsDatatype,
-{
-    type Base = <T as Buffer>::Base;
-}
+// unsafe impl<T, const D: usize> Buffer for [T; D]
+// where
+//     T: Buffer,
+//    // Self: Pointer + Collection + AsDatatype,
+// {
+//     type Base = <T as Buffer>::Base;
+// }
 
 /// A mutable buffer is a region in memory that starts at `pointer_mut()` and contains `count()`
 /// copies of `as_datatype()`.
@@ -1085,20 +1129,23 @@ where
 {
     type Base = <T as Equivalence>::Base;
 }
-unsafe impl<T, const D: usize> BufferMut for [T; D]
-where
-    T: BufferMut,
-    Self: PointerMut + Collection + AsDatatype,
-{
-    type Base = <T as BufferMut>::Base;
-}
+// unsafe impl<T, const D: usize> BufferMut for [T; D]
+// where
+//     T: BufferMut,
+//     Self: PointerMut + Collection + AsDatatype,
+// {
+//     type Base = <T as BufferMut>::Base;
+// }
 // Just a check
-fn foo_check(x: [[f32; 2]; 3]) {
-    let _y: &dyn PointerMut = &x;
-    let _y: &dyn Collection = &x;
-    let _y: &dyn AsDatatype<Out = SystemDatatype> = &x;
-    let _y: &dyn BufferMut<Base = f32, Out = SystemDatatype> = &x;
-}
+// fn foo_check(x: [[f32; 2]; 3]) {
+//     let _y: &dyn PointerMut = &x;
+//     let _y: &dyn Collection = &x;
+//     let _y: &dyn AsDatatype<Out = SystemDatatype> = &x;
+//     let _y: &dyn BufferMut<Base = f32, Out = SystemDatatype> = &x;
+// }
+
+
+
 
 /// An immutable dynamically-typed buffer.
 ///
