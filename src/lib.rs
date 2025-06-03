@@ -151,6 +151,7 @@ pub mod topology;
 /// It includes support for sending and receiving typed data, and
 /// validating datatype consistency across ranks.
 pub mod typed_communicator;
+pub mod petsc_two_sided;
 
 /// Re-exports all traits.
 pub mod traits {

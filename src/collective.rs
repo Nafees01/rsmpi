@@ -199,7 +199,7 @@ pub trait CommunicatorCollectives: Communicator {
     fn all_reduce_into<S: ?Sized, R: ?Sized, O>(&self, sendbuf: &S, recvbuf: &mut R, op: O)
     where
         S: Buffer,
-        R: BufferMut,
+        R: BufferMut<Base = S::Base>,
         O: Operation,
     {
         unsafe {
