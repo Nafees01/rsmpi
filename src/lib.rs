@@ -150,7 +150,10 @@ pub mod topology;
 /// This module provides a typed communicator for MPI operations.
 /// It includes support for sending and receiving typed data, and
 /// validating datatype consistency across ranks.
-pub mod typed_communicator;
+//pub mod typed_communicator;
+
+/// This module provides two-sided communication patterns with dynamic data types.
+/// It includes support for sending and receiving heterogeneous data with barrier synchronization.
 pub mod petsc_two_sided;
 
 /// Re-exports all traits.

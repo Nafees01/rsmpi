@@ -1097,6 +1097,61 @@ where
 {
     type Base = <T as Equivalence>::Base;
 }
+
+unsafe impl<'a, T: Equivalence> AsDatatype for &'a [T] {
+    type Out = T::Out;
+
+    fn as_datatype(&self) -> Self::Out {
+        T::equivalent_datatype()
+    }
+}
+
+unsafe impl<'a, T: Equivalence> AsDatatype for &'a mut [T] {
+    type Out = T::Out;
+
+    fn as_datatype(&self) -> Self::Out {
+        T::equivalent_datatype()
+    }
+}
+
+unsafe impl<'a, T: Equivalence> Collection for &'a [T] {
+    fn count(&self) -> Count {
+        self.len() as Count
+    }
+}
+
+unsafe impl<'a, T: Equivalence> Collection for &'a mut [T] {
+    fn count(&self) -> Count {
+        self.len() as Count
+    }
+}
+
+unsafe impl<'a, T: Equivalence> Pointer for &'a [T] {
+    fn pointer(&self) -> *const std::ffi::c_void {
+        self.as_ptr() as *const _
+    }
+}
+
+unsafe impl<'a, T: Equivalence> Pointer for &'a mut [T] {
+    fn pointer(&self) -> *const std::ffi::c_void {
+        self.as_ptr() as *const _
+    }
+}
+
+unsafe impl<'a, T: Equivalence> PointerMut for &'a mut [T] {
+    fn pointer_mut(&mut self) -> *mut std::ffi::c_void {
+        self.as_mut_ptr() as *mut _
+    }
+}
+
+unsafe impl<'a, T: Equivalence> Buffer for &'a [T] {
+    type Base = <T as Equivalence>::Base;
+}
+
+unsafe impl<'a, T: Equivalence> Buffer for &'a mut [T] {
+    type Base = <T as Equivalence>::Base;
+}
+
 // unsafe impl<T, const D: usize> Buffer for [T; D]
 // where
 //     T: Buffer,
@@ -1127,6 +1182,10 @@ unsafe impl<T> BufferMut for Vec<T>
 where
     T: Equivalence,
 {
+    type Base = <T as Equivalence>::Base;
+}
+
+unsafe impl<'a, T: Equivalence> BufferMut for &'a mut [T] {
     type Base = <T as Equivalence>::Base;
 }
 // unsafe impl<T, const D: usize> BufferMut for [T; D]
